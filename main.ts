@@ -1,10 +1,16 @@
-// Token Radar, model radar-2 (Node 22, standard library only).
+// Token Radar, model radar-3 (Node 22, standard library only).
 //
 // The program reads the sealed snapshot from /input/snapshot.json (or --input <file|dir>), scores
 // every rankable pre-token protocol with the model in lib/model.ts, writes the ranked board to
 // /output/board.json, writes the dashboard's data beside the page as /output/data.js, and copies
 // this repository's dashboard/ and screenshots/ to /output. Last, it writes /output/dossier.json,
 // the summary the judge reads, with the vendored make.fun library.
+//
+// radar-3 tests its own multiple held-out (walk-forward by listing date and leave-one-out, both
+// on the live-token protocols' real market caps), adds launch odds, a $/hour farm verdict with a
+// minimum capital, and the three nearest live-token comparables by name per row, and accounts
+// for every one of the snapshot's protocols on the cover: ranked, excluded by a named reason,
+// or already live.
 //
 // The dashboard is a static page, no framework and no network: dashboard/index.html, dashboard/app.css
 // and dashboard/app.js read /output/data.js, which this program writes from the same board. The
@@ -98,8 +104,12 @@ writeFileSync(
 
 const top = board[0]!;
 const median = board[Math.floor(board.length / 2)]!;
+const excludedTotal = radar.excluded.reduce((n, g) => n + g.count, 0);
+const coverage = board.length + excludedTotal + radar.live_total;
 process.stdout.write(
-  `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside, ${radar.excluded.reduce((n, g) => n + g.count, 0)} set aside)\n` +
+  `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside, ${excludedTotal} set aside)\n` +
+    `token radar: coverage ${coverage}/${snapshot.protocols.length} accounted for (${board.length} ranked + ${excludedTotal} excluded + ${radar.live_total} live)\n` +
+    `token radar: held-out walk-forward median error ${radar.validation.walk_forward.median_abs_pct_error}% (train ${radar.validation.walk_forward.train_n}, test ${radar.validation.walk_forward.test_n}, split ${radar.validation.walk_forward.split_date}), leave-one-out ${radar.validation.leave_one_out.median_abs_pct_error}% (n=${radar.validation.leave_one_out.test_n}), in-sample ${radar.validation.in_sample.median_abs_pct_error}%\n` +
     `token radar: top ${top.name} at $${top.implied_value_usd.toLocaleString('en-US')}, median row $${median.implied_value_usd.toLocaleString('en-US')}\n` +
     `token radar: wrote ${join(outDir, 'board.json')}, ${join(outDir, 'data.js')}, ${join(outDir, 'dashboard')} (${dashFiles.length} files), ${join(outDir, 'screenshots')} (${shots.length} images) and ${join(outDir, 'dossier.json')}\n`,
 );
